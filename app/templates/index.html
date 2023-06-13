@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Arxiv Papers</title>
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="{{ url_for('static', filename='css/style.css') }}"
+    />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Latest Papers</h1>
+      {% for paper in papers %}
+      <div class="paper">
+        <h2><a href="{{ paper.link }}">{{ paper.title }}</a></h2>
+        <p>{{ paper.summary }}</p>
+        <p class="date">Published: {{ paper.published }}</p>
+        <p class="author">Authors: {{ ", ".join(paper.authors) }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </body>
+</html>
