@@ -16,7 +16,7 @@ def fetch_arxiv_papers(category):
     return response.content
 
 def parse_arxiv_papers(xml_data):
-    soup = BeautifulSoup(xml_data, 'xml')
+    soup = BeautifulSoup(xml_data, 'lxml')
     papers = []
     for entry in soup.find_all('entry'):
         paper = {
