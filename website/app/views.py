@@ -1,5 +1,6 @@
-from flask import render_template
+from flask import render_template, request
 from app import app
+from models.comments import get_comments
 import requests
 from bs4 import BeautifulSoup
 
@@ -10,7 +11,20 @@ def index():
     papers = parse_arxiv_papers(xml_data)
     return render_template('index.html', papers=papers)
 
-def fetch_arxiv_papers(category):
+@app.route('/comments')
+def comments():
+    arxiv_id = request.args.get("id")
+    comments = get_comments(arxiv_id=arxiv_id)
+    # Fetch paper summary from arxiv or we store it locally?
+    paper = None
+    #paper = fetch_arxiv_paper(arxiv_id = arxiv_id)
+    return render_template('comments.html', paper=paper, comments=comments)
+
+def parse_arxiv_id(link: str):
+    return link.split("/")[-1]
+
+
+def fetch_arxiv_papers(category: str):
     url = f'http://export.arxiv.org/api/query?search_query=cat:{category}&sortBy=submittedDate&sortOrder=descending'
     response = requests.get(url)
     return response.content
@@ -20,6 +34,7 @@ def parse_arxiv_papers(xml_data):
     papers = []
     for entry in soup.find_all('entry'):
         paper = {
+            'id': parse_arxiv_id(entry.id.text),
             'title': entry.title.text,
             'summary': entry.summary.text,
             'authors': [author.text for author in entry.find_all('name')],
