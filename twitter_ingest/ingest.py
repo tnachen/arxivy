@@ -8,21 +8,28 @@ image = (
 )
 stub = modal.Stub("arxivy-twitter-ingest", image=image)
 
-def init_twitter():
+def init_twitter_v2():
     api_key = os.environ["TWITTER_ACCESS_TOKEN"]
     api_secret = os.environ["TWITTER_ACCESS_TOKEN_SECRET"]
     consumer_key = os.environ["TWITTER_API_KEY"]
     consumer_secret = os.environ["TWITTER_API_SECRET"]
-    auth = tweepy.OAuthHandler(consumer_key=consumer_key, consumer_secret=consumer_secret)
-    auth.set_access_token(key=api_key, secret=api_secret)
-    return tweepy.API(auth)
+    bearer_token = os.environ["TWITTER_BEARER_TOKEN"]
+    return tweepy.Client(
+        access_token=api_key,
+        access_token_secret=api_secret,
+        bearer_token=bearer_token,
+        consumer_secret=consumer_secret,
+        consumer_key=consumer_key)
 
 @stub.function(secret=modal.Secret.from_name("twitter-secret"))
 def get_arxivy_tweets():
-    api = init_twitter()
-    tweets = api.home_timeline(count=20)
-    for tweet in tweets:
-        print(tweet.text)
+    client = init_twitter_v2()
+    response = client.get_home_timeline(max_results=2, tweet_fields="organic_metrics")
+    print(response)
+    for data in response.data:
+        print(data)
+
+
 
 @stub.local_entrypoint()
 def main():
