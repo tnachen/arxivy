@@ -97,6 +97,13 @@ def crawl_tweets(driver: Chrome, source: str) -> List[Tweet]:
     return tweets
 
 
+def print_tweets(tweets: List[Tweet]) -> None:
+    for t in tweets:
+        print(t.user)
+        print(t.text)        
+        print(t.paper_url)
+        print()
+
 def _main() -> None:
     """Main driver"""
     options = webdriver.ChromeOptions()
@@ -111,11 +118,13 @@ def _main() -> None:
     driver.get(f"https://twitter.com/search?q=arxiv.org%20llms%20filter%3Alinks%20since%3A{date}%20&src=typed_query&f=top")
     sleep(5)
     arxiv_tweets = crawl_tweets(driver, "arxiv")
+    print_tweets(arxiv_tweets)
 
     # Crawl huggingface papers from Twitter
     driver.get(f"https://twitter.com/search?q=huggingface.co%2Fpapers%20filter%3Alinks%20since%3A{date}&src=typed_query&f=top")
     sleep(5)
     hf_tweets = crawl_tweets(driver, "huggingface.co")
+    print_tweets(hf_tweets)
 
     driver.quit()
 
