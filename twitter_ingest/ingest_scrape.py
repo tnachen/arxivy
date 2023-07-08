@@ -34,21 +34,21 @@ def parse_tweet(element: WebElement, source: str) -> Tweet:
     profile_image = images[0].get_attribute("src")
     embedded_image = None
     if len(images) > 1:
-        embedded_image = images[1].get_attribute("src")
+        embedded_image = images[1].get_attribute("src")        
 
-    extractor = URLExtract()
-    for url in extractor.find_urls(element.text):
-        if source in url:
-            if url == "arxiv.org" or url == "huggingface.co":
-                # This is likely a embedded URL in the tweet, so we have to extract the URL further
-                for u in element.find_elements(By.TAG_NAME, "a"):
-                    embedded_url = u.get_attribute("href")
-                    if "t.co" in embedded_url:
-                        url = resolve_url(embedded_url)
-                        break
+    paper_url = None
+    
+    for u in element.find_elements(By.TAG_NAME, "a"):
+        url = u.get_attribute("href")
+        if "t.co" in url:
+            url = resolve_url(url)
 
+        if source in url:            
             paper_url = url
             break
+
+    if not paper_url:
+        raise Exception("Paper url not found in tweet: " + element.text)
 
     return Tweet(text=element.text,
                  user=user,
