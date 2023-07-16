@@ -1,3 +1,4 @@
+import sys
 from datetime import datetime
 
 from time import sleep
@@ -11,7 +12,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.remote.webelement import WebElement
 from dataclasses import dataclass
-from urlextract import URLExtract
+from selenium.webdriver.common.keys import Keys
 import requests
 
 @dataclass
@@ -21,13 +22,23 @@ class Tweet:
     embedded_image_url: Optional[str]
     paper_url: str
     user: str
-    views: str
+    views: int
 
 def resolve_url(base_url):
     r = requests.get(base_url)
     return r.url
 
-def parse_tweet(element: WebElement, source: str) -> Tweet:
+
+def parse_views(view_str: str) -> int:
+    view_str = view_str.replace(",", "")
+    if view_str.endswith("K"):
+        # Replace decimal and append 00
+        view_str = view_str.replace(".", "")
+        view_str = view_str[0:-1] + "00"
+
+    return int(view_str)
+
+def parse_tweet(element: WebElement, source: str) -> Optional[Tweet]:
     lines = element.text.split("\n")
     user = lines[1][1:] # remove @
     images = element.find_elements(By.TAG_NAME, "img")
@@ -48,22 +59,38 @@ def parse_tweet(element: WebElement, source: str) -> Tweet:
             break
 
     if not paper_url:
-        raise Exception("Paper url not found in tweet: " + element.text)
+        return None
+
+    views = parse_views(lines[-1])
 
     return Tweet(text=element.text,
                  user=user,
-                 views=lines[-1],
+                 views=views,
                  paper_url=paper_url,
                  profile_image_url=profile_image,
                  embedded_image_url=embedded_image)
 
 
-def login(driver):
-    login = driver.find_by_ai("twitter_login")
-    #login_next_btn = driver.find_by_ai("twitter_login_next_btn")
+def login(driver: Chrome, username: str, password: str) -> None:
+    spans = driver.find_elements(By.TAG_NAME, "span")
+    required_login = False
+    for span in spans:
+        if "Sign in to Twitter" in span.text:
+            required_login = True        
+    
+    if not required_login:
+        return
+    
+    login_box = driver.find_element(By.TAG_NAME, "input")
+    login_box.send_keys(username)
+    actions = ActionChains(driver)
+    actions.send_keys(Keys.ENTER).perform()
+    
     sleep(3)
-    #password = driver.find_by_ai("twitter_login_password")
-    sleep(10)
+    
+    driver.switch_to.active_element.send_keys(password)
+    actions = ActionChains(driver)
+    actions.send_keys(Keys.ENTER).perform()
 
 def date_str() -> str:
     return datetime.now().strftime("%Y-%m-%d")
@@ -82,9 +109,11 @@ def crawl_tweets(driver: Chrome, source: str) -> List[Tweet]:
                     # Skip promoted tweets
                     continue
 
-                tweets.append(parse_tweet(article, source))
-                ids.add(article.id)
-                tweet_added = True
+                tweet = parse_tweet(article, source)
+                if tweet:
+                    tweets.append(tweet)
+                    ids.add(article.id)
+                    tweet_added = True
 
         if tweet_added:
             action.move_to_element(articles[-1]).perform()
@@ -100,6 +129,7 @@ def print_tweets(tweets: List[Tweet]) -> None:
         print(t.user)
         print(t.text)        
         print(t.paper_url)
+        print(t.views)
         print()
 
 def _main() -> None:
@@ -108,14 +138,31 @@ def _main() -> None:
     driver = Chrome(options=options, service=Service(ChromeDriverManager().install()))
     driver.maximize_window()
 
-    #date = date_str()
-    date = "2023-07-10"
+    date = date_str()
+
+    arxiv_links = [
+        f"https://twitter.com/search?q=llms%20filter%3Alinks%20since%3A{date}%20&src=typed_query&f=top",
+        f"https://twitter.com/search?q=llm%20since%3A{date}%20filter%3Alinks&src=typed_query&f=top",
+    ]
 
     # Crawl arxiv papers from Twitter
-    driver.get(f"https://twitter.com/search?q=arxiv.org%20llms%20filter%3Alinks%20since%3A{date}%20&src=typed_query&f=top")
+    driver.get(arxiv_links[1])
     sleep(5)
-    arxiv_tweets = crawl_tweets(driver, "arxiv")
-    print_tweets(arxiv_tweets)
+
+    username = sys.argv[1]
+    password = sys.argv[2]
+
+    login(driver=driver, username=username, password=password)
+
+    for arxiv_link in arxiv_links:
+        driver.get(arxiv_link)
+        # Sleep for tweet page to load
+        sleep(10)
+
+        arxiv_tweets = crawl_tweets(driver, "arxiv")
+        print_tweets(arxiv_tweets)
+    
+    return
 
     # Crawl huggingface papers from Twitter
     driver.get(f"https://twitter.com/search?q=huggingface.co%2Fpapers%20filter%3Alinks%20since%3A{date}&src=typed_query&f=top")

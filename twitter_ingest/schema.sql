@@ -3,4 +3,5 @@ CREATE TABLE twitter_papers (
     user text not null,
     paper_link text not null,
     views integer default 0,
+    source text not null,
 )
