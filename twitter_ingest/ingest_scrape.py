@@ -9,6 +9,7 @@ from time import sleep
 from typing import List, Optional
 
 from selenium import webdriver
+from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver import Chrome
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
@@ -32,6 +33,22 @@ stdout.setLevel(logging.DEBUG)
 logger.addHandler(stdout)
 logger.setLevel(logging.DEBUG)
 
+class Driver:
+    def __init__(self, driver: Chrome):
+        self.driver = driver
+        self.last_link = None
+
+    def go_link(self, url: str, sleep_time: int):
+        if self.last_link == url:
+            return
+
+        logger.info(f"Navigating to {url} with sleep {sleep_time}")
+        self.driver.get(url)
+        sleep(sleep_time)
+        self.last_link = url
+
+
+
 @dataclass
 class Tweet:
     text: str
@@ -44,6 +61,7 @@ class Tweet:
 
 
 def write_papers_to_db(tweets: List[Tweet], url: str, auth_token: str) -> None:
+    logger.info(f"Writing {len(tweets)} of papers to db")
     with libsql_client.create_client_sync(url=url, auth_token=auth_token) as client:
         for tweet in tweets:
             client.execute(
@@ -68,12 +86,6 @@ def resolve_url(base_url):
         return base_url
 
     return r.url
-
-
-def go_link(driver: Chrome, url: str, sleep_time: int):
-    logger.info(f"Navigating to {url} with sleep {sleep_time}")
-    driver.get(url)
-    sleep(sleep_time)
 
 
 def parse_views(lines: List[str], list_view: bool) -> int:
@@ -106,7 +118,6 @@ def parse_views(lines: List[str], list_view: bool) -> int:
 
 
 def parse_tweet(element: WebElement, sources: List[str], list_view: bool) -> Optional[Tweet]:
-    logger.debug("Parsing tweet text: " + element.text)
     lines = element.text.split("\n")
     user = lines[1][1:]  # remove @
     images = element.find_elements(By.TAG_NAME, "img")
@@ -178,7 +189,7 @@ def detect_show_more(article: WebElement) -> Optional[str]:
     spans = article.find_elements(By.TAG_NAME, "span")
     is_show_more = False
     for span in spans:
-        if span.text == "Show more":
+        if span.text.strip() == "Show more":
             is_show_more = True
             break
 
@@ -194,47 +205,72 @@ def detect_show_more(article: WebElement) -> Optional[str]:
     return link
 
 
-def crawl_tweets(driver: Chrome, sources: List[str]) -> List[Tweet]:
-    action = ActionChains(driver)
+def crawl_tweets(driver: Driver, sources: List[str]) -> List[Tweet]:
+    action = ActionChains(driver.driver)
     tweets: List[Tweet] = []
     show_more_links = set()
     ids = set()
+    # We track the last batch of ids, so when we get the exact same ones we know we're at the end.
+    last_batch_ids = set()
+
+    def parse_article(article: WebElement) -> bool:
+        if article.id not in ids:
+            ids.add(article.id)
+            if article.text.endswith("Promoted"):
+                # Skip promoted tweets
+                return False
+
+            try:
+                show_more_link = detect_show_more(article)
+            except StaleElementReferenceException as e:
+                logger.warn("Detected stale element in finding show more, skipping")
+                return False
+
+            if show_more_link:
+                logger.info(f"Adding article {article.id} to show more")
+                show_more_links.add(show_more_link)
+                # Skip show more tweets, as we'll crawl them later
+                return False
+
+            tweet = parse_tweet(article, sources, True)
+            if tweet:
+                tweets.append(tweet)
+
+        return True
 
     def scroll_and_crawl(count: int):
-        last_id = None
+        articles = driver.driver.find_elements(By.TAG_NAME, "article")
+        article_ids = set(a.id for a in articles)
+        if last_batch_ids == article_ids:
+            return
 
-        articles = driver.find_elements(By.TAG_NAME, "article")
-        for article in articles:
+        last_batch_ids.clear()
+        for a in article_ids: last_batch_ids.add(a)
+
+        logger.debug(f"Found {len(articles)} articles in scroll, {article_ids}")
+
+        for article in sorted(articles, key=lambda x: int(x.id.split("_")[-1])):
+            logger.debug(f"Processing article {article.id}")
             if article.id not in ids:
-                if article.text.endswith("Promoted"):
-                    # Skip promoted tweets
-                    continue
+                try:
+                    action.move_to_element(article).perform()
+                except StaleElementReferenceException:
+                    logger.warn(f"Found stale element navigating to article {article.id}")
+                    break
 
-                show_more_link = detect_show_more(article)
-                if show_more_link:
-                    show_more_links.add(show_more_link)
-                    # Skip show more tweets, as we'll crawl them later
-                    continue
+                if parse_article(article=article):
+                    count += 1
 
-                count += 1
-
-                tweet = parse_tweet(article, sources, True)
-                if tweet:
-                    tweets.append(tweet)
-                    ids.add(article.id)
-
-        if last_id != articles[-1].id:
-            action.move_to_element(articles[-1]).perform()
-            last_id = articles[-1].id
-            if count < MAX_TWEETS:
-                scroll_and_crawl(count)
+        if count < MAX_TWEETS:
+            scroll_and_crawl(count)
 
     scroll_and_crawl(0)
 
+    logger.info(f"Processing {len(show_more_links)} show more tweets")
     # Browse through all the show more tweets individually
     for show_more_link in show_more_links:
-        go_link(driver, urljoin("https://twitter.com", show_more_link), 5)
-        article = driver.find_element(By.TAG_NAME, "article")
+        driver.go_link(urljoin("https://twitter.com", show_more_link), 5)
+        article = driver.driver.find_element(By.TAG_NAME, "article")
         tweet = parse_tweet(article, sources, False)
         if tweet:
             tweets.append(tweet)
@@ -244,11 +280,10 @@ def crawl_tweets(driver: Chrome, sources: List[str]) -> List[Tweet]:
 
 def print_tweets(tweets: List[Tweet]) -> None:
     for t in tweets:
-        print(t.user)
-        print(t.text)
-        print(t.paper_url)
-        print(t.views)
-        print()
+        logger.debug(t.user)
+        logger.debug(t.text)
+        logger.debug(t.paper_url)
+        logger.debug(t.views)
 
 
 def _main() -> None:
@@ -258,6 +293,7 @@ def _main() -> None:
     driver = Chrome(options=options, service=Service(
         ChromeDriverManager().install()))
     driver.maximize_window()
+    driver = Driver(driver)
 
     date = yesterday()
 
@@ -268,15 +304,15 @@ def _main() -> None:
     ]
 
     # Crawl arxiv papers from Twitter
-    go_link(driver, arxiv_links[0], 5)
+    driver.go_link(arxiv_links[0], 5)
 
     username = sys.argv[1]
     password = sys.argv[2]
 
-    login(driver=driver, username=username, password=password)
+    login(driver=driver.driver, username=username, password=password)
 
     for arxiv_link in arxiv_links:
-        go_link(driver, arxiv_link, 10)
+        driver.go_link(arxiv_link, 10)
 
         arxiv_tweets = crawl_tweets(
             driver, ["arxiv", "ai.meta.com/research/publications"])
@@ -285,15 +321,16 @@ def _main() -> None:
             "TURSO_URL"), os.getenv("TURSO_AUTH_TOKEN"))
 
     # Crawl huggingface papers from Twitter
-    driver.get(
-        f"https://twitter.com/search?q=huggingface.co%2Fpapers%20filter%3Alinks%20since%3A{date}&src=typed_query&f=top")
-    sleep(5)
-    hf_tweets = crawl_tweets(driver, "huggingface.co")
-    print_tweets(hf_tweets)
+    driver.go_link(
+        f"https://twitter.com/search?q=huggingface.co%2Fpapers%20filter%3Alinks%20since%3A{date}&src=typed_query&f=top",
+        5)
+
+    hf_tweets = crawl_tweets(driver, ["huggingface.co"])
+    #print_tweets(hf_tweets)
     write_papers_to_db(hf_tweets, os.getenv(
             "TURSO_URL"), os.getenv("TURSO_AUTH_TOKEN"))
 
-    driver.quit()
+    driver.driver.quit()
 
 
 if __name__ == "__main__":
