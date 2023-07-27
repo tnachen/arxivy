@@ -315,7 +315,7 @@ def _main() -> None:
         driver.go_link(arxiv_link, 10)
 
         arxiv_tweets = crawl_tweets(
-            driver, ["arxiv", "ai.meta.com/research/publications"])
+            driver, ["arxiv.org", "ai.meta.com/research/publications"])
         print_tweets(arxiv_tweets)
         write_papers_to_db(arxiv_tweets, os.getenv(
             "TURSO_URL"), os.getenv("TURSO_AUTH_TOKEN"))
