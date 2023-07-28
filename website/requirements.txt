@@ -2,3 +2,5 @@ Flask==2.2.2
 requests==2.25.1
 beautifulsoup4==4.9.3
 lxml==4.9.2
+libsql-client==0.3.0
+python-dotenv==1.0.0

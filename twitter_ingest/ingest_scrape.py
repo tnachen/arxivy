@@ -65,7 +65,7 @@ def write_papers_to_db(tweets: List[Tweet], url: str, auth_token: str) -> None:
     with libsql_client.create_client_sync(url=url, auth_token=auth_token) as client:
         for tweet in tweets:
             client.execute(
-                "INSERT OR IGNORE INTO papers VALUES (:user, :link, :profile_image, :views, :source, :created_at)",
+                "INSERT OR IGNORE INTO papers VALUES (:user, :profile_image, :link, :views, :source, :created_at)",
                 {
                     "user": tweet.user,
                     "link": tweet.paper_url,

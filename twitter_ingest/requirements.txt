@@ -4,3 +4,4 @@ tweepy==4.14.0
 urlextract==1.8.0
 selenium==4.10.0
 webdriver-manager==3.8.6
+libsql-client==0.3.0
