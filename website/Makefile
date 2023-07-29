@@ -35,3 +35,6 @@ develop:
 	@printf "${white}\n> ${green}Python virtual env setup successfully.${reset}";
 	@printf "${white}> Activate it with: ${reset}\n";
 	@printf "${white}     source venv/bin/activate ${reset} \n";
+
+run:
+	gunicorn 'app:app'
