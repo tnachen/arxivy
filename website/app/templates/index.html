@@ -7,9 +7,41 @@
       type="text/css"
       href="{{ url_for('static', filename='css/style.css') }}"
     />
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
   </head>
   <body>
     <div class="container">
+      <h1>Arxivy</h1>
+      <header class="header">
+        {% if session['username'] %}
+        <p>Welcome, {{ session['username'] }}</p>
+        <form id="logout-form" method="post" action="/logout">
+          <button type="submit">Sign Out</button>
+        </form>
+        {% else %}
+        <a href="/sign_in">Sign In</a>
+        <a href="/sign_up">Sign Up</a>
+        {% endif %}
+      </header>
+
+      <div id="register-form" style="display: none">
+        <h1>Register</h1>
+        <label for="register-email">Email:</label><br />
+        <input type="email" id="register-email" name="email" /><br />
+        <label for="register-password">Password:</label><br />
+        <input type="password" id="register-password" name="password" /><br />
+        <button id="register-submit">Register</button>
+      </div>
+
+      <div id="sign-in-form" style="display: none">
+        <h1>Sign In</h1>
+        <label for="sign-in-email">Email:</label><br />
+        <input type="email" id="sign-in-email" name="email" /><br />
+        <label for="sign-in-password">Password:</label><br />
+        <input type="password" id="sign-in-password" name="password" /><br />
+        <button id="sign-in-submit">Sign In</button>
+      </div>
+
       <h1>Latest Papers</h1>
       {% for paper in papers %}
       <div class="paper">
@@ -17,8 +49,55 @@
         <p>{{ paper.summary }}</p>
         <p class="date">Published: {{ paper.published }}</p>
         <p class="author">Authors: {{ ", ".join(paper.authors) }}</p>
+
+        <h3>Comments</h3>
+        <ul id="comments-{{ paper.id }}"></ul>
+
+        <div class="comment-form" data-paper-id="{{ paper.id }}">
+          <label for="comment">Comment:</label><br />
+          <textarea id="comment" name="comment"></textarea><br />
+          <button class="comment-submit">Post Comment</button>
+        </div>
       </div>
       {% endfor %}
     </div>
+
+    <script>
+      // Sign up and sign in buttons
+      document
+        .getElementById("sign-up-button")
+        .addEventListener("click", function () {
+          document.getElementById("register-form").style.display = "block";
+        });
+      document
+        .getElementById("sign-in-button")
+        .addEventListener("click", function () {
+          document.getElementById("sign-in-form").style.display = "block";
+        });
+
+      // Comment form submission handlers
+      var commentForms = document.getElementsByClassName("comment-form");
+      Array.from(commentForms).forEach(function (form) {
+        form
+          .querySelector(".comment-submit")
+          .addEventListener("click", function (event) {
+            event.preventDefault();
+            var paperId = form.getAttribute("data-paper-id");
+            var comment = form.querySelector("textarea").value;
+            axios
+              .post("/comments", {
+                post_id: paperId,
+                text: comment,
+              })
+              .then(function (response) {
+                console.log(response.data);
+                // TODO: Add the new comment to the comments list
+              })
+              .catch(function (error) {
+                console.error(error);
+              });
+          });
+      });
+    </script>
   </body>
 </html>

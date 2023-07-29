@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Sign Up</title>
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="{{ url_for('static', filename='css/style.css') }}"
+    />
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+  </head>
+  <body>
+    <header>
+      <button onclick="window.history.back()">Back</button>
+    </header>
+    <h1>Register</h1>
+    <form id="register-form">
+      <label for="email">Email:</label><br />
+      <input type="email" id="email" name="email" /><br />
+      <label for="password">Password:</label><br />
+      <input type="password" id="password" name="password" /><br />
+      <input type="submit" value="Register" />
+    </form>
+
+    <script>
+      // Register form submission handler
+      document
+        .getElementById("register-form")
+        .addEventListener("submit", function (event) {
+          // Prevent the default form submission
+          event.preventDefault();
+          var email = document.getElementById("email").value;
+          var password = document.getElementById("password").value;
+          axios
+            .post("/register", {
+              email: email,
+              password: password,
+            })
+            .then(function (response) {
+              if (response.status === 200) {
+                // Redirect to the index page
+                window.location.href = "/";
+              } else {
+                // Registration failed, do not attempt to log in
+                console.error("Failed to register:", response.data.message);
+              }
+            })
+            .catch(function (error) {
+              // Network or other error, do not attempt to log in
+              console.error(error);
+            });
+        });
+    </script>
+  </body>
+</html>
