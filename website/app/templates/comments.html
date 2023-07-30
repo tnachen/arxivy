@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Arxiv Comment for Paper {{ paper.title }}</title>
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="{{ url_for('static', filename='css/style.css') }}"
+    />
+  </head>
+  <body>
+    <div class="container">
+      <h2><a href="{{ paper.link }}">{{ paper.title }}</a></h2>
+        <p>{{ paper.summary }}</p>
+        <p class="date">Published: {{ paper.published }}</p>
+        <p class="author">Authors: {{ ", ".join(paper.authors) }}</p>
+      <h1>Latest Comments</h1>
+      {% for comment in comments %}
+        <div class="comment">
+          <p>{{ comment.body }}</p>
+          <p class="date">Commented At: {{ comment.created }}</p>
+          <p class="author">User: {{ comment.user }}</p>
+        </div>
+      {% endfor %}
+    </div>
+  </body>
+</html>

@@ -54,3 +54,20 @@ p {
   font-size: 7pt;
   color: #828282;
 }
+
+.header {
+  background-color: rgb(240, 141, 20);
+  padding: 10px;
+}
+
+.header a {
+  color: white;
+  margin-right: 10px;
+  text-decoration: none;
+  padding: 5px;
+}
+
+.header a:hover {
+  background-color: rgb(240, 141, 20);
+  border-radius: 5px;
+}
