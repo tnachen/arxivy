@@ -118,7 +118,12 @@ def parse_views(lines: List[str], list_view: bool) -> int:
 
 
 def parse_tweet(element: WebElement, sources: List[str], list_view: bool) -> Optional[Tweet]:
-    lines = element.text.split("\n")
+    text = element.text
+    lines = text.split("\n")
+    if len(lines) == 1:
+        logger.warn("Found a unexpected tweet: " + text)
+        return None
+
     user = lines[1][1:]  # remove @
     images = element.find_elements(By.TAG_NAME, "img")
     profile_image = images[0].get_attribute("src")
@@ -290,8 +295,13 @@ def _main() -> None:
     """Main driver"""
     options = webdriver.ChromeOptions()
     options.add_argument("--user-data-dir=/tmp/ingest_profile")
+    options.add_argument("--headless=new")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--ignore-ssl-errors=true")
+    options.add_argument("--ignore-certificate-errors")
+
     driver = Chrome(options=options, service=Service(
-        ChromeDriverManager().install()))
+        ChromeDriverManager(driver_version="114.0.5735.90").install()))
     driver.maximize_window()
     driver = Driver(driver)
 

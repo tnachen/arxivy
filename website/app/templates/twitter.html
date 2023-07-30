@@ -13,7 +13,7 @@
       <h1>Latest Papers</h1>
       {% for paper in papers %}
       <div class="paper">
-        <h2><a href="{{ paper.profile_image }}">{{ paper.profile_image }}</a></h2>
+        <h2><a href="{{ paper.paper_link }}">{{ paper.paper_link }}</a></h2>
         <p>{{ paper.user }}</p>
         <p class="date">Views: {{ paper.views }}</p>
         <p class="author">Added: {{ paper.created_at }}</p>

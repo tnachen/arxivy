@@ -28,7 +28,7 @@ def twitter():
 
 def fetch_twitter_papers():
     with libsql_client.create_client_sync(url=TURSO_URL, auth_token=TURSO_AUTH_TOKEN) as client:
-        return client.execute("SELECT * FROM papers ORDER BY created_at DESC")
+        return client.execute("SELECT * FROM papers WHERE views > 300 ORDER BY created_at DESC")
 
 def fetch_arxiv_papers(category):
     url = f'http://export.arxiv.org/api/query?search_query=cat:{category}&sortBy=submittedDate&sortOrder=descending'
