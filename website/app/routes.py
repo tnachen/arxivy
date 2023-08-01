@@ -1,14 +1,23 @@
-from flask import redirect, render_template, request, session, url_for
-from app import app
-import requests
-from flask import jsonify
-from bs4 import BeautifulSoup
-from supabase import create_client, Client
+import datetime
 import os
+
+import libsql_client
+import requests
+from bs4 import BeautifulSoup
+from dotenv import load_dotenv
+from flask import jsonify, redirect, render_template, request, session, url_for
+from supabase import Client, create_client
+
+from app import app
+
+load_dotenv()
 
 url: str = os.environ.get("SUPABASE_URL")
 key: str = os.environ.get("SUPABASE_KEY")
+turso_url = os.getenv("TURSO_URL")
+turso_auth_token = os.getenv("TURSO_AUTH_TOKEN")
 supabase: Client = create_client(url, key)
+
 
 @app.route('/')
 def index():
@@ -17,13 +26,16 @@ def index():
     papers = parse_arxiv_papers(xml_data)
     return render_template('index.html', papers=papers)
 
+
 @app.route('/sign_up')
 def sign_up():
     return render_template('sign_up.html')
 
+
 @app.route('/sign_in')
 def sign_in():
     return render_template('sign_in.html')
+
 
 @app.route('/logout', methods=['POST'])
 def logout():
@@ -75,24 +87,61 @@ def register():
         return jsonify({"message": "User registered successfully!", "user": user_dict}), 200
     return jsonify({"message": "Failed to sign up"}), 401
 
+
 @app.route('/comments', methods=['POST'])
 def create_comment():
     data = request.get_json()
     result = supabase.table("comments").insert(data).execute()
     return jsonify(result), 201
 
+
 @app.route('/comments/<int:post_id>', methods=['GET'])
 def get_comments(post_id):
-    result = supabase.table("comments").select().filter("post_id", "eq", post_id).execute()
+    result = supabase.table("comments").select().filter(
+        "post_id", "eq", post_id).execute()
     return jsonify(result)
+
+
+@app.route('/twitter')
+def twitter():
+    days = fetch_twitter_papers()
+    return render_template('twitter.html', days=days)
+
+
 def parse_arxiv_id(link: str):
     return link.split("/")[-1]
+
+
+def fetch_twitter_papers():
+    days = []
+    with libsql_client.create_client_sync(url=turso_url, auth_token=turso_auth_token) as client:
+        result = client.execute(
+            "SELECT * FROM papers WHERE views > 300 ORDER BY created_at DESC")
+        last_date = ""
+        papers = []
+        for row in result:
+            d = datetime.datetime.fromtimestamp(row["created_at"] / 1000.0)
+            new_date = d.strftime("%Y-%m-%d")
+            if last_date != new_date:
+                papers.sort(lambda x: x["views"], reverse=True)
+                papers = []
+                day = {
+                    "day": new_date,
+                    "papers": papers
+                }
+                days.append(day)
+                last_date = new_date
+
+            papers.append(row)
+
+    return days
 
 
 def fetch_arxiv_papers(category: str):
     url = f'http://export.arxiv.org/api/query?search_query=cat:{category}&sortBy=submittedDate&sortOrder=descending'
     response = requests.get(url)
     return response.content
+
 
 def parse_arxiv_papers(xml_data):
     soup = BeautifulSoup(xml_data, 'lxml')

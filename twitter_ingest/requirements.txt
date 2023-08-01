@@ -5,3 +5,4 @@ urlextract==1.8.0
 selenium==4.10.0
 webdriver-manager==3.8.6
 libsql-client==0.3.0
+supabase==1.0.3
