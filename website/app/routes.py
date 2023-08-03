@@ -123,7 +123,7 @@ def fetch_twitter_papers():
             d = datetime.datetime.fromtimestamp(row["created_at"] / 1000.0)
             new_date = d.strftime("%Y-%m-%d")
             if last_date != new_date:
-                papers.sort(lambda x: x["views"], reverse=True)
+                papers.sort(key=lambda x: x["views"], reverse=True)
                 papers = []
                 day = {
                     "day": new_date,
