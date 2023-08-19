@@ -117,22 +117,28 @@ def fetch_twitter_papers():
     with libsql_client.create_client_sync(url=turso_url, auth_token=turso_auth_token) as client:
         result = client.execute(
             "SELECT * FROM papers WHERE views > 300 ORDER BY created_at DESC")
-        last_date = ""
+
         papers = []
+        last_date = ""
         for row in result:
-            d = datetime.datetime.fromtimestamp(row["created_at"] / 1000.0)
+            r_dict = row.asdict()
+            d = datetime.datetime.fromtimestamp(int(row["created_at"]) / 1000.0)
+            r_dict["created_at"] = d
+            papers.append(r_dict)
             new_date = d.strftime("%Y-%m-%d")
             if last_date != new_date:
                 papers.sort(key=lambda x: x["views"], reverse=True)
-                papers = []
                 day = {
                     "day": new_date,
                     "papers": papers
                 }
+                if last_date != "":
+                    papers = []
                 days.append(day)
-                last_date = new_date
 
-            papers.append(row)
+            last_date = new_date
+
+        papers.sort(key=lambda x: x["views"], reverse=True)
 
     return days
 

@@ -12,17 +12,22 @@
     <div class="container">
       <h1>Latest Papers</h1>
       {% for day in days %}
-      <h2>
-        Top papers for day.day
-      </h2>
+      <h1>
+        Top papers for day: {{ day.day }}
+      </h1>
         {% for paper in day.papers %}
         <div class="paper">
-          <h2><a href="{{ paper.paper_link }}">{{ paper.paper_link }}</a></h2>
-          <p>{{ paper.user }}</p>
+          <h2><a href="{{ paper.paper_link }}">{{ paper.title }}</a></h2>
+          <p>Shared by {{ paper.user }}</p>
+          <p>Abstract: {{ paper.abstract }}</p>
+          <p>Authors: {{ paper.authors }}</p>
           <p class="date">Views: {{ paper.views }}</p>
           <p class="author">Added: {{ paper.created_at }}</p>
         </div>
         {% endfor %}
+        <br />
+        <br />
+        <br />
       {% endfor %}
     </div>
   </body>

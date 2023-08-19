@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 import os
 import sys
 from datetime import datetime, timedelta
+from scrape_arxiv import ArxivPaper, scrape_arxiv_abstract
 
 from time import sleep
 from typing import List, Optional
@@ -47,8 +48,6 @@ class Driver:
         sleep(sleep_time)
         self.last_link = url
 
-
-
 @dataclass
 class Tweet:
     text: str
@@ -58,6 +57,7 @@ class Tweet:
     user: str
     source: str
     views: int
+    metadata: ArxivPaper
 
 
 def write_papers_to_db(tweets: List[Tweet], url: str, auth_token: str) -> None:
@@ -65,13 +65,16 @@ def write_papers_to_db(tweets: List[Tweet], url: str, auth_token: str) -> None:
     with libsql_client.create_client_sync(url=url, auth_token=auth_token) as client:
         for tweet in tweets:
             client.execute(
-                "INSERT OR IGNORE INTO papers VALUES (:user, :profile_image, :link, :views, :source, :created_at)",
+                "INSERT OR IGNORE INTO papers VALUES (:user, :profile_image, :link, :views, :source, :created_at, :title, :authors, :abstract)",
                 {
                     "user": tweet.user,
                     "link": tweet.paper_url,
                     "profile_image": tweet.profile_image_url,
                     "views": tweet.views,
                     "source": tweet.source,
+                    "abstract": tweet.metadata.abstract,
+                    "title": tweet.metadata.title,
+                    "authors": tweet.metadata.authors,
                     "created_at": datetime.now()
                 })
 
@@ -80,7 +83,7 @@ def resolve_url(base_url):
     try:
         r = requests.get(base_url)
     except Exception as e:
-        logger.warn(f"Cannot connect to {base_url}: {e}")
+        logger.warning(f"Cannot connect to {base_url}: {e}")
 
         # Return the url if we cannot connect to it
         return base_url
@@ -156,14 +159,15 @@ def parse_tweet(element: WebElement, sources: List[str], list_view: bool) -> Opt
                  paper_url=paper_url,
                  profile_image_url=profile_image,
                  source=found_source,
-                 embedded_image_url=embedded_image)
+                 embedded_image_url=embedded_image,
+                 metadata=None)
 
 
 def login(driver: Chrome, username: str, password: str) -> None:
     spans = driver.find_elements(By.TAG_NAME, "span")
     required_login = False
     for span in spans:
-        if "Sign in to Twitter" in span.text:
+        if "Sign in to X" in span.text:
             required_login = True
 
     if not required_login:
@@ -183,6 +187,28 @@ def login(driver: Chrome, username: str, password: str) -> None:
 
 def yesterday() -> str:
     return (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+
+
+def normalize_arxiv_url(url: str) -> str:
+    prefixes = [
+         "https://huggingface.co/papers",
+         "https://arxiv.org/pdf/"
+     ]
+
+    for p in prefixes:
+        if url.startswith(p):
+            return "https://arxiv.org/abs/" + url[len(p):]
+
+    return url
+
+def fetch_paper_metadata(driver: Chrome, tweet: Tweet) -> None:
+    """
+    Populates the metadata object
+    """
+    url = normalize_arxiv_url(tweet.paper_url)
+    metadata = scrape_arxiv_abstract(driver, url)
+    tweet.metadata = metadata
+
 
 
 def detect_show_more(article: WebElement) -> Optional[str]:
@@ -280,6 +306,9 @@ def crawl_tweets(driver: Driver, sources: List[str]) -> List[Tweet]:
         if tweet:
             tweets.append(tweet)
 
+    for tweet in tweets:
+        fetch_paper_metadata(driver, tweet)
+
     return tweets
 
 
@@ -295,13 +324,13 @@ def _main() -> None:
     """Main driver"""
     options = webdriver.ChromeOptions()
     options.add_argument("--user-data-dir=/tmp/ingest_profile")
-    options.add_argument("--headless=new")
+    #options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument("--ignore-ssl-errors=true")
     options.add_argument("--ignore-certificate-errors")
 
     driver = Chrome(options=options, service=Service(
-        ChromeDriverManager(driver_version="114.0.5735.90").install()))
+        ChromeDriverManager().install()))
     driver.maximize_window()
     driver = Driver(driver)
 
