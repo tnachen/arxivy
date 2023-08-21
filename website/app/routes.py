@@ -1,6 +1,7 @@
 import datetime
 import os
 
+import pytz
 import libsql_client
 import requests
 from bs4 import BeautifulSoup
@@ -122,7 +123,7 @@ def fetch_twitter_papers():
         last_date = ""
         for row in result:
             r_dict = row.asdict()
-            d = datetime.datetime.fromtimestamp(int(row["created_at"]) / 1000.0)
+            d = datetime.datetime.fromtimestamp(int(row["created_at"]) / 1000.0, tz=pytz.timezone("US/Pacific"))
             r_dict["created_at"] = d
             papers.append(r_dict)
             new_date = d.strftime("%Y-%m-%d")
