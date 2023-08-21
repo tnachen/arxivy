@@ -5,6 +5,8 @@ import os
 import sys
 from datetime import datetime, timedelta
 from scrape_arxiv import ArxivPaper, scrape_arxiv_abstract
+from requests.adapters import HTTPAdapter
+from urllib3 import Retry
 
 from time import sleep
 from typing import List, Optional
@@ -80,8 +82,13 @@ def write_papers_to_db(tweets: List[Tweet], url: str, auth_token: str) -> None:
 
 
 def resolve_url(base_url):
+    adapter = HTTPAdapter(max_retries=
+                          Retry(total=2, backoff_factor=1, allowed_methods=None, status_forcelist=[429, 500, 502, 503, 504]))
+    s = requests.Session()
+    s.mount("http://", adapter)
+    s.mount("https://", adapter)
     try:
-        r = requests.get(base_url)
+        r = s.get(base_url)
     except Exception as e:
         logger.warning(f"Cannot connect to {base_url}: {e}")
 
