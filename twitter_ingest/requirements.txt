@@ -1,3 +1,4 @@
+python-dotenv==1.0.0
 modal==0.49.2437
 modal-client==0.49.2437
 tweepy==4.14.0
