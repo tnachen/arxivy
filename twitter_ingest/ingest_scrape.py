@@ -362,7 +362,6 @@ def _main() -> None:
 
         arxiv_tweets = crawl_tweets(
             driver, ["arxiv.org", "ai.meta.com/research/publications"])
-        print_tweets(arxiv_tweets)
         write_papers_to_db(arxiv_tweets, os.getenv(
             "TURSO_URL"), os.getenv("TURSO_AUTH_TOKEN"))
 
@@ -372,7 +371,6 @@ def _main() -> None:
         5)
 
     hf_tweets = crawl_tweets(driver, ["huggingface.co"])
-    #print_tweets(hf_tweets)
     write_papers_to_db(hf_tweets, os.getenv(
             "TURSO_URL"), os.getenv("TURSO_AUTH_TOKEN"))
 
