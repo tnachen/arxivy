@@ -6,3 +6,4 @@ libsql-client==0.3.0
 python-dotenv==1.0.0
 gunicorn==21.2.0
 supabase==1.0.3
+pytz==2023.3
