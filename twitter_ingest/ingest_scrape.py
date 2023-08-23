@@ -127,7 +127,7 @@ def parse_views(lines: List[str], list_view: bool) -> int:
 
 def has_enough_parts(url: str) -> bool:    
     parsed = urlparse(url)
-    return parsed.path[1:].split("/") > 1
+    return len(parsed.path[1:].split("/")) > 1
 
 
 def parse_tweet(element: WebElement, sources: List[str], list_view: bool) -> Optional[Tweet]:
