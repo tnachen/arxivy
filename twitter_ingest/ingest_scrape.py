@@ -1,29 +1,28 @@
 import logging
-from urllib.parse import urljoin
-from dotenv import load_dotenv
 import os
 import sys
+from dataclasses import dataclass
 from datetime import datetime, timedelta
-from scrape_arxiv import ArxivPaper, scrape_arxiv_abstract
-from requests.adapters import HTTPAdapter
-from urllib3 import Retry
-
 from time import sleep
 from typing import List, Optional
+from urllib.parse import urljoin, urlparse
 
+import libsql_client
+import requests
+from dotenv import load_dotenv
+from requests.adapters import HTTPAdapter
 from selenium import webdriver
 from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver import Chrome
 from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
-from selenium.webdriver.remote.webelement import WebElement
-from dataclasses import dataclass
+from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-import requests
+from selenium.webdriver.remote.webelement import WebElement
+from urllib3 import Retry
+from webdriver_manager.chrome import ChromeDriverManager
 
-import libsql_client
+from scrape_arxiv import ArxivPaper, scrape_arxiv_abstract
 
 ## CONSTANTS
 
@@ -126,6 +125,10 @@ def parse_views(lines: List[str], list_view: bool) -> int:
 
     return int(view_str)
 
+def has_enough_parts(url: str) -> bool:    
+    parsed = urlparse(url)
+    return parsed.path[1:].split("/") > 1
+
 
 def parse_tweet(element: WebElement, sources: List[str], list_view: bool) -> Optional[Tweet]:
     text = element.text
@@ -150,7 +153,7 @@ def parse_tweet(element: WebElement, sources: List[str], list_view: bool) -> Opt
             url = resolve_url(url)
 
         for source in sources:
-            if source in url:
+            if source in url and has_enough_parts(url):
                 paper_url = url
                 found_source = source
                 break
@@ -198,7 +201,7 @@ def yesterday() -> str:
 
 def normalize_arxiv_url(url: str) -> str:
     prefixes = [
-         "https://huggingface.co/papers",
+         "https://huggingface.co/papers/",
          "https://arxiv.org/pdf/"
      ]
 
@@ -331,7 +334,7 @@ def _main() -> None:
     """Main driver"""
     options = webdriver.ChromeOptions()
     options.add_argument("--user-data-dir=/tmp/ingest_profile")
-    #options.add_argument("--headless=new")
+    options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument("--ignore-ssl-errors=true")
     options.add_argument("--ignore-certificate-errors")
