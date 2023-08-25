@@ -20,4 +20,13 @@ def scrape_arxiv_abstract(driver, arxiv_link: str):
     return ArxivPaper(title=title, abstract=abstract, authors=authors)
 
 
+def scrape_meta_abstract(driver, meta_link: str):
+    driver.go_link(meta_link, 5)
+
+    title = driver.driver.find_element(By.TAG_NAME, "h1").text
+    abstract = driver.driver.find_element(By.XPATH, "//h2/following-sibling::p")
+    authors_lines = driver.find_elements(By.XPATH, "//h4/following-sibling::div")[1].split("\n")[1:]
+    authors = ", ".join(authors_lines)
+
+    return ArxivPaper(title=title, abstract=abstract, authors=authors)
 

@@ -22,7 +22,7 @@ from selenium.webdriver.remote.webelement import WebElement
 from urllib3 import Retry
 from webdriver_manager.chrome import ChromeDriverManager
 
-from scrape_arxiv import ArxivPaper, scrape_arxiv_abstract
+from scrape_arxiv import ArxivPaper, scrape_arxiv_abstract, scrape_meta_abstract
 
 ## CONSTANTS
 
@@ -125,7 +125,7 @@ def parse_views(lines: List[str], list_view: bool) -> int:
 
     return int(view_str)
 
-def has_enough_parts(url: str) -> bool:    
+def has_enough_parts(url: str) -> bool:
     parsed = urlparse(url)
     return len(parsed.path[1:].split("/")) > 1
 
@@ -216,9 +216,11 @@ def fetch_paper_metadata(driver: Chrome, tweet: Tweet) -> None:
     Populates the metadata object
     """
     url = normalize_arxiv_url(tweet.paper_url)
-    metadata = scrape_arxiv_abstract(driver, url)
+    if "ai.meta.com/research/publications" in url:
+        metadata = scrape_meta_abstract(driver, url)
+    else:
+        metadata = scrape_arxiv_abstract(driver, url)
     tweet.metadata = metadata
-
 
 
 def detect_show_more(article: WebElement) -> Optional[str]:
