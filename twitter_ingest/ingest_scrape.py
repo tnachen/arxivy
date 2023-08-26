@@ -61,7 +61,7 @@ class Tweet:
     metadata: ArxivPaper
 
 
-def write_papers_to_db(tweets: List[Tweet], url: str, auth_token: str) -> None:
+def write_papers_to_db(tweets: List[Tweet], url: str, auth_token: str, current_time: datetime) -> None:
     logger.info(f"Writing {len(tweets)} of papers to db")
     with libsql_client.create_client_sync(url=url, auth_token=auth_token) as client:
         for tweet in tweets:
@@ -76,7 +76,7 @@ def write_papers_to_db(tweets: List[Tweet], url: str, auth_token: str) -> None:
                     "abstract": tweet.metadata.abstract,
                     "title": tweet.metadata.title,
                     "authors": tweet.metadata.authors,
-                    "created_at": datetime.now()
+                    "created_at": current_time,
                 })
 
 
@@ -195,8 +195,13 @@ def login(driver: Chrome, username: str, password: str) -> None:
     sleep(3)
 
 
-def yesterday() -> str:
-    return (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+def date_ranges() -> (datetime, str, str):
+    """
+    Returns date range for twitter query and db time
+    """
+    t = datetime.now().date()
+    y = (datetime.now() - timedelta(days=1)).date()
+    return (y, y.strftime("%Y-%m-%d"), t.strftime("%Y-%m-%d"))
 
 
 def normalize_arxiv_url(url: str) -> str:
@@ -346,12 +351,12 @@ def _main() -> None:
     driver.maximize_window()
     driver = Driver(driver)
 
-    date = yesterday()
+    date, y_str, t_str = date_ranges()
 
     arxiv_links = [
-        f"https://twitter.com/search?q=llms%20filter%3Alinks%20since%3A{date}%20&src=typed_query&f=top",
-        f"https://twitter.com/search?q=llm%20since%3A{date}%20filter%3Alinks&src=typed_query&f=top",
-        f"https://twitter.com/search?q=gpt4%20filter%3Alinks%20since%3A{date}%20&src=typed_query&f=top"
+        f"https://twitter.com/search?q=llms%20filter%3Alinks%20until%3A{t_str}%20since%3A{y_str}&src=typed_query&f=top",
+        f"https://twitter.com/search?q=llm%20until%3A{t_str}%20since%3A{y_str}%20filter%3Alinks&src=typed_query&f=top",
+        f"https://twitter.com/search?q=gpt4%20filter%3Alinks%20until%3A{t_str}%20since%3A{y_str}%20&src=typed_query&f=top"
     ]
 
     # Crawl arxiv papers from Twitter
@@ -368,7 +373,7 @@ def _main() -> None:
         arxiv_tweets = crawl_tweets(
             driver, ["arxiv.org", "ai.meta.com/research/publications"])
         write_papers_to_db(arxiv_tweets, os.getenv(
-            "TURSO_URL"), os.getenv("TURSO_AUTH_TOKEN"))
+            "TURSO_URL"), os.getenv("TURSO_AUTH_TOKEN"), date)
 
     # Crawl huggingface papers from Twitter
     driver.go_link(
@@ -377,7 +382,7 @@ def _main() -> None:
 
     hf_tweets = crawl_tweets(driver, ["huggingface.co"])
     write_papers_to_db(hf_tweets, os.getenv(
-            "TURSO_URL"), os.getenv("TURSO_AUTH_TOKEN"))
+            "TURSO_URL"), os.getenv("TURSO_AUTH_TOKEN"), date)
 
     driver.driver.quit()
 
