@@ -201,7 +201,7 @@ def date_ranges() -> (datetime, str, str):
     """
     t = datetime.now().date()
     y = (datetime.now() - timedelta(days=1)).date()
-    return (y, y.strftime("%Y-%m-%d"), t.strftime("%Y-%m-%d"))
+    return (datetime(year=y.year, month=y.month, day=y.day), y.strftime("%Y-%m-%d"), t.strftime("%Y-%m-%d"))
 
 
 def normalize_arxiv_url(url: str) -> str:
