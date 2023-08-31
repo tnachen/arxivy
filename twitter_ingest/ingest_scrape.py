@@ -261,7 +261,7 @@ def crawl_tweets(driver: Driver, sources: List[str]) -> List[Tweet]:
     # We track the last batch of ids, so when we get the exact same ones we know we're at the end.
     last_batch_ids = set()
 
-    def parse_article(article: WebElement) -> bool:
+    def parse_article(article: WebElement, override_views: int = 0) -> bool:
         if article.id not in ids:
             ids.add(article.id)
             if article.text.endswith("Promoted"):
@@ -282,11 +282,12 @@ def crawl_tweets(driver: Driver, sources: List[str]) -> List[Tweet]:
 
             tweet = parse_tweet(article, sources, True)
             if tweet:
+                tweet.views = max(tweet.views, override_views)
                 tweets.append(tweet)
 
         return True
 
-    def scroll_and_crawl(count: int):
+    def scroll_and_crawl(count: int, override_views: int = 0):
         articles = driver.driver.find_elements(By.TAG_NAME, "article")
         article_ids = set(a.id for a in articles)
         if last_batch_ids == article_ids:
@@ -306,7 +307,7 @@ def crawl_tweets(driver: Driver, sources: List[str]) -> List[Tweet]:
                     logger.warn(f"Found stale element navigating to article {article.id}")
                     break
 
-                if parse_article(article=article):
+                if parse_article(article=article, override_views=override_views):
                     count += 1
 
         if count < MAX_TWEETS:
@@ -316,12 +317,12 @@ def crawl_tweets(driver: Driver, sources: List[str]) -> List[Tweet]:
 
     logger.info(f"Processing {len(show_more_links)} show more tweets")
     # Browse through all the show more tweets individually
-    for show_more_link in show_more_links:
+    show_more_links_copy = show_more_links.copy()
+    for show_more_link in show_more_links_copy:
         driver.go_link(urljoin("https://twitter.com", show_more_link), 5)
-        article = driver.driver.find_element(By.TAG_NAME, "article")
-        tweet = parse_tweet(article, sources, False)
-        if tweet:
-            tweets.append(tweet)
+        articles = driver.driver.find_elements(By.TAG_NAME, "article")
+        views = parse_views(articles[0].text.split("\n"), False)
+        scroll_and_crawl(0, views)
 
     for tweet in tweets:
         fetch_paper_metadata(driver, tweet)
@@ -351,7 +352,8 @@ def _main() -> None:
     driver.maximize_window()
     driver = Driver(driver)
 
-    date, y_str, t_str = date_ranges()
+    #date, y_str, t_str = date_ranges()
+    date, y_str, t_str = (datetime(year=2023, month=8, day=24), "2023-08-24", "2023-08-25")
 
     arxiv_links = [
         f"https://twitter.com/search?q=llms%20filter%3Alinks%20until%3A{t_str}%20since%3A{y_str}&src=typed_query&f=top",
