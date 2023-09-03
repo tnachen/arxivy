@@ -29,6 +29,10 @@ from scrape_arxiv import ArxivPaper, scrape_arxiv_abstract, scrape_meta_abstract
 # Maximum tweets to crawl each page
 MAX_TWEETS = 50
 
+logging.basicConfig(
+    format='%(asctime)s %(levelname)-8s %(message)s',
+    level=logging.INFO,
+    datefmt='%Y-%m-%d %H:%M:%S')
 logger = logging.getLogger(__name__)
 stdout = logging.StreamHandler(stream=sys.stdout)
 stdout.setLevel(logging.DEBUG)
