@@ -25,7 +25,7 @@ def scrape_meta_abstract(driver, meta_link: str):
 
     title = driver.driver.find_element(By.TAG_NAME, "h1").text
     abstract = driver.driver.find_element(By.XPATH, "//h2/following-sibling::p")
-    authors_lines = driver.find_elements(By.XPATH, "//h4/following-sibling::div")[1].split("\n")[1:]
+    authors_lines = driver.driver.find_elements(By.XPATH, "//h4/following-sibling::div")[1].text.split("\n")[1:]
     authors = ", ".join(authors_lines)
 
     return ArxivPaper(title=title, abstract=abstract, authors=authors)
