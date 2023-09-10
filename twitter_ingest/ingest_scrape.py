@@ -102,10 +102,8 @@ def resolve_url(base_url):
 
 
 def parse_views(lines: List[str], list_view: bool) -> int:
-    if list_view:
-        # Last line of the list tweet view is the view count
-        view_str = lines[-1]
-    else:
+    view_str = lines[-1].strip()
+    if not str(view_str[0]).isdigit():
         # In the per tweet status view, need to find the views line
         found_views = False
         for line in reversed(lines):
@@ -143,7 +141,9 @@ def parse_tweet(element: WebElement, sources: List[str], list_view: bool) -> Opt
 
     user = lines[1][1:]  # remove @
     images = element.find_elements(By.TAG_NAME, "img")
-    profile_image = images[0].get_attribute("src")
+    profile_image = ""
+    if len(images) > 0:
+        profile_image = images[0].get_attribute("src")
     embedded_image = None
     if len(images) > 1:
         embedded_image = images[1].get_attribute("src")
@@ -307,12 +307,11 @@ def crawl_tweets(driver: Driver, sources: List[str]) -> List[Tweet]:
             if article.id not in ids:
                 try:
                     action.move_to_element(article).perform()
+                    if parse_article(article=article, override_views=override_views):
+                        count += 1
                 except StaleElementReferenceException:
                     logger.warn(f"Found stale element navigating to article {article.id}")
                     break
-
-                if parse_article(article=article, override_views=override_views):
-                    count += 1
 
         if count < MAX_TWEETS:
             scroll_and_crawl(count)
